@@ -16,7 +16,7 @@ import os
 # COMMAND ----------
 
 with open("config.json") as f:
-    config = json.loads(f.read())
+    config = json.load(f)
     
 roi = config["GFC_ROI_CENTRAL_AFRICA"]
 basin_path = config["BASIN_PATH"]
@@ -121,10 +121,7 @@ for tile_area in gfc_tile_areas:
 # COMMAND ----------
 
 basins["total_loss"] = basins[lossyear_cols].sum(axis=1)
-# Polygons need to be projected to a cartesian projection for the area calculation to be valid
-# cea: cylindrical equal area projection
-basins["area"] = basins["geometry"].to_crs({'proj':'cea'}).area
-basins["relative_loss"] = basins["total_loss"] / basins["area"]
+basins["relative_loss"] = basins["total_loss"] / basins["SUB_AREA"]
 
 # COMMAND ----------
 
