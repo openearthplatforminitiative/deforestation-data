@@ -25,3 +25,7 @@ with open(download_path, 'wb') as outfile:
 
 with zipfile.ZipFile(download_path, 'r') as zip_ref:
     zip_ref.extractall(extract_path)
+
+# COMMAND ----------
+
+os.remove(download_path)

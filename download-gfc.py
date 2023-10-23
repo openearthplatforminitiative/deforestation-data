@@ -8,7 +8,10 @@ from time import sleep
 base_url = "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2022-v1.10/"
 filename_template = "Hansen_GFC-2022-v1.10_{product}_{area}.tif"
 products = ["treecover2000", "lossyear"]
-areas = ["10N_020W", "10N_010W", "10N_000E", "10N_010E", "10N_020E", "10N_030E", "10N_040E", "00N_010E", "00N_020E", "00N_030E", "00N_040E"]
+areas = [
+  "10N_020W", "10N_010W", "10N_000E", "10N_010E", "10N_020E", "10N_030E", "10N_040E", 
+  "00N_010E", "00N_020E", "00N_030E", "00N_040E"
+]
 
 # COMMAND ----------
 
@@ -28,3 +31,19 @@ for product_name in products:
             outfile.write(r.content)
         print(download_path)
         sleep(0.5)
+
+# COMMAND ----------
+
+for product_name in products:
+    # os.makedirs(download_base_path + product_name)
+    # print(download_base_path + product_name)
+    for area_name in areas:
+        filename = filename_template.format(product=product_name, area=area_name)
+        download_path = download_base_path + filename
+        target_path = os.path.join(download_base_path, product_name, filename)
+        print(target_path)
+
+# COMMAND ----------
+
+# MAGIC %sh
+# MAGIC ls /dbfs/mnt/openepi-storage/global-forest-change/

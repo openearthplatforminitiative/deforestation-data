@@ -16,7 +16,7 @@ import os
 # COMMAND ----------
 
 with open("config.json") as f:
-    config = json.loads(f.read())
+    config = json.load(f)
     
 roi = config["GFC_ROI_CENTRAL_AFRICA"]
 basin_path = config["BASIN_PATH"]
