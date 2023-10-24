@@ -1,28 +1,36 @@
 # Databricks notebook source
+dbutils.widgets.dropdown("overwrite_files", "False", ["False", "True"])
+overwrite_files = dbutils.widgets.get("overwrite_files") == "True"
+
+# COMMAND ----------
+
 import requests
 import os
+import json
 from time import sleep
 
 # COMMAND ----------
 
-base_url = "https://storage.googleapis.com/earthenginepartners-hansen/GFC-2022-v1.10/"
-filename_template = "Hansen_GFC-2022-v1.10_{product}_{area}.tif"
-products = ["treecover2000", "lossyear"]
-areas = ["10N_020W", "10N_010W", "10N_000E", "10N_010E", "10N_020E", "10N_030E", "10N_040E", "00N_010E", "00N_020E", "00N_030E", "00N_040E"]
+with open("config.json") as f:
+    config = json.load(f)
 
 # COMMAND ----------
 
-download_base_path = "/dbfs/mnt/openepi-storage/global-forest-change/"
-if not os.path.exists(download_base_path):
-    os.makedirs(download_base_path)
+base_url = config["GFC_BASE_URL"]
+download_base_path = config["GFC_DOWNLOAD_BASE_PATH"]
+products = config["GFC_REQUIRED_PRODUCTS"]
+areas = config["GFC_TILE_AREAS"]
 
 # COMMAND ----------
 
 for product_name in products:
+    download_product_path = os.paths.join(download_base_path, product_name)
+    os.makedirs(download_product_path, exists_ok=True)
     for area_name in areas:
-        filename = filename_template.format(product=product_name, area=area_name)
-        url = base_url + filename
-        download_path = download_base_path + filename
+        download_path = os.path.join(download_product_path, f"{area_name}.tif")
+        if os.path.isfile(download_path) and not overwrite_files:
+            continue
+        url = base_url + f"Hansen_GFC-2022-v1.10_{product_name}_{area_name}.tif"
         r = requests.get(url)
         with open(download_path, 'wb') as outfile:
             outfile.write(r.content)
