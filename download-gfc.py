@@ -24,8 +24,8 @@ areas = config["GFC_TILE_AREAS"]
 # COMMAND ----------
 
 for product_name in products:
-    download_product_path = os.paths.join(download_base_path, product_name)
-    os.makedirs(download_product_path, exists_ok=True)
+    download_product_path = os.path.join(download_base_path, product_name)
+    os.makedirs(download_product_path, exist_ok=True)
     for area_name in areas:
         download_path = os.path.join(download_product_path, f"{area_name}.tif")
         if os.path.isfile(download_path) and not overwrite_files:
