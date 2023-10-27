@@ -1,7 +1,7 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # Naive Implementation (runtime ~1.5h)
-# MAGIC This is a naive implementation for aggregating deforestation data on river sub-basin level.
+# MAGIC # Non-parallelized implementation (runtime ~1h)
+# MAGIC This is a naive implementation for aggregating deforestation data on river sub-basin level running on a single node.
 
 # COMMAND ----------
 
@@ -9,9 +9,11 @@ import geopandas as gpd
 import pandas as pd
 import xarray as xr
 import rioxarray
+import rasterio
 from shapely.geometry import Polygon
 import json
 import os
+from tqdm import tqdm
 
 # COMMAND ----------
 
@@ -22,7 +24,8 @@ roi = config["GFC_ROI_CENTRAL_AFRICA"]
 basin_path = config["BASIN_PATH"]
 basin_level = config["GFC_BASIN_AGGREGATION_LEVEL"]
 gfc_tile_areas = config["GFC_TILE_AREAS"]
-gfc_path = config["GFC_PATH"]
+gfc_path = config["GFC_DOWNLOAD_BASE_PATH"]
+gfc_treecover = config["GFC_TREECOVER_THRESHOLD"]
 chunk_size = config["GFC_CHUNK_SIZE"]
 output_path = config["GFC_BASINS_AGGREGATION_OUTPUT_PATH"]
 
@@ -34,6 +37,7 @@ roi_bbox_polygon = Polygon([
     (roi["lon_max"], roi["lat_max"]), 
     (roi["lon_min"], roi["lat_max"])
 ])
+
 roi_bbox_gdf = gpd.GeoDataFrame(geometry=[roi_bbox_polygon], crs="EPSG:4326")
 
 # COMMAND ----------
@@ -55,7 +59,13 @@ for colname in lossyear_cols:
 
 # COMMAND ----------
 
-def load_GFC_tile(src_path: str, roi: dict[str, float]) -> xr.DataArray:
+def get_gfc_path(product: str, area: str, spark_api: bool=True) -> str:
+    prefix = "dbfs:/" if spark_api else "/dbfs/"
+    gfc_root = "mnt/openepi-storage/global-forest-change/" 
+    gfc_path = os.path.join(prefix, gfc_root, product, f"{area}.tif")
+    return gfc_path
+
+def open_GFC_tile(src_path: str, roi: dict[str, float]) -> xr.DataArray:
     """Load GFC tile, squeeze and slice to ROI."""
     data = rioxarray.open_rasterio(src_path)
     data = data.squeeze() # data is single band, use squeeze to drop band dimension
@@ -65,16 +75,16 @@ def load_GFC_tile(src_path: str, roi: dict[str, float]) -> xr.DataArray:
     )
     return data
 
-def data_chunk_to_points(data_chunk: xr.DataArray) -> gpd.GeoDataFrame:
-    """Convert a chunk from the GFC tiles to a GeoDataFrame."""
-    df = data_chunk.to_dataframe(name="lossyear").reset_index()
-    df = df[df["lossyear"] > 0]
-    lossyear_points = gpd.GeoDataFrame(
-        df["lossyear"], 
+def non_zero_to_df(data: xr.DataArray, name: str="non_zero") -> gpd.GeoDataFrame:
+    """Take all non-zero cells in a DataArray and convert them to points in a GeoDataFrame."""
+    df = data.to_dataframe(name=name).reset_index()
+    df = df[df[name] > 0]
+    gdf = gpd.GeoDataFrame(
+        df[name], 
         geometry=gpd.points_from_xy(df.x, df.y), 
-        crs=data_chunk.spatial_ref.crs_wkt
+        crs=data.spatial_ref.crs_wkt
     )
-    return lossyear_points
+    return gdf
 
 def count_loss_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.GeoDataFrame) -> pd.DataFrame:
     """
@@ -100,23 +110,27 @@ def count_loss_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.Geo
     ).rename(columns={y: f"lossyear{y:02}" for y in range(1, 23)})
     return lossyear_count
 
+
 # COMMAND ----------
 
-# WARNING: long running code (~1.5h)
+# WARNING: long running code (~1h)
 for tile_area in gfc_tile_areas:
-    tile_name = f"Hansen_GFC-2022-v1.10_lossyear_{tile_area}.tif"
-    src_path = os.path.join(gfc_path, tile_name)
-    data = load_GFC_tile(src_path, roi)
-    h, w = data.shape
-    for i in range(h // chunk_size):
-        for j in range(w // chunk_size):
-            data_chunk = data.isel(
-                x=slice(i*chunk_size, (i+1)*chunk_size), 
-                y=slice(j*chunk_size, (j+1)*chunk_size))
-            lossyear_points = data_chunk_to_points(data_chunk)
-            lossyear_count = count_loss_per_basin_year(lossyear_points, basins)
-            basins.loc[lossyear_count.index, lossyear_count.columns] += lossyear_count
-    data.close()
+    print(tile_area)
+    lossyear_path = os.path.join(gfc_path, f"lossyear/{tile_area}.tif")
+    lossyear_data = open_GFC_tile(lossyear_path, roi)
+    h, w = lossyear_data.shape
+    chunk_size = 100
+    # The GFC raster data is is organized in blocks of size (1, 40000).
+    # For optimal performance the data should be read in chunks where 
+    # the size is a multiple of the block size of the raster file.
+    # Here the data is loaded in chunks of size (chunk_size, 40000)
+    for i in tqdm(range(h // chunk_size)):
+        chunk_slice = {"y": slice(i*chunk_size, (i+1)*chunk_size)}
+        lossyear_chunk = lossyear_data.isel(y=slice(i*chunk_size, (i+1)*chunk_size))
+        lossyear_points = non_zero_to_df(lossyear_chunk, "lossyear")
+        lossyear_count = count_loss_per_basin_year(lossyear_points, basins)
+        basins.loc[lossyear_count.index, lossyear_count.columns] += lossyear_count
+    lossyear_data.close()
 
 # COMMAND ----------
 
