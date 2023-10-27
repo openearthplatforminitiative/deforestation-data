@@ -11,7 +11,7 @@
     "GFC_TILE_AREAS": ["10N_020W", "10N_010W", "10N_000E", "10N_010E", "10N_020E", "10N_030E", "10N_040E","00N_000E","00N_010E", "00N_020E", "00N_030E", "00N_040E"],
     "GFC_BASIN_AGGREGATION_LEVEL": 7,
     "GFC_TREECOVER_THRESHOLD": 0.3,
-    "GFC_CHUNK_SIZE": 10000,
+    "GFC_CHUNK_SIZE": 1000,
     "BASIN_PATH": "/dbfs/mnt/openepi-storage/hydrobasin-africa/",
     "GFC_BASINS_AGGREGATION_OUTPUT_PATH": "/dbfs/mnt/openepi-storage/tmp/gfc_basin_lossyear.parquet"
 }
