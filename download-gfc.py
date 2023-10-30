@@ -7,10 +7,10 @@ overwrite_files = dbutils.widgets.get("overwrite_files") == "True"
 import requests
 import os
 import json
-from time import sleep
+import tempfile
+import shutil
 
 from rio_cogeo import cog_translate, cog_profiles
-from rasterio.io import MemoryFile
 
 # COMMAND ----------
 
@@ -26,10 +26,7 @@ areas = config["GFC_TILE_AREAS"]
 
 # COMMAND ----------
 
-import tempfile
-import shutil
-
-def save_as_cog(data: bytes, output_path, profile: str="deflate") -> None:
+def save_as_cog(data: bytes, output_path: str, profile: str="deflate") -> None:
     """Translate bytes from a GeoTIFF to COG and save the result."""
     with tempfile.NamedTemporaryFile() as tmpfile:
         tmpfile.write(data)
