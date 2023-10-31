@@ -27,7 +27,11 @@ areas = config["GFC_TILE_AREAS"]
 # COMMAND ----------
 
 def save_as_cog(data: bytes, output_path: str, profile: str="deflate") -> None:
-    """Translate bytes from a GeoTIFF to COG and save the result."""
+    """
+    Translate bytes from a GeoTIFF to COG and save the result.
+    A tempfile is created because cog_translate seems to have problems 
+    reading from and writing to S3.
+    """
     with tempfile.NamedTemporaryFile() as tmpfile:
         tmpfile.write(data)
         cog_translate(
