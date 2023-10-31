@@ -119,11 +119,9 @@ for tile_area in gfc_tile_areas:
     lossyear_path = os.path.join(gfc_path, f"lossyear/{tile_area}.tif")
     lossyear_data = open_GFC_tile(lossyear_path, roi)
     h, w = lossyear_data.shape
-    chunk_size = 100
-    # The GFC raster data is is organized in blocks of size (1, 40000).
+    # The GFC raster data is is organized in blocks of size (512, 512).
     # For optimal performance the data should be read in chunks where 
     # the size is a multiple of the block size of the raster file.
-    # Here the data is loaded in chunks of size (chunk_size, 40000)
     for i in tqdm(range(h // chunk_size)):
         chunk_slice = {"y": slice(i*chunk_size, (i+1)*chunk_size)}
         lossyear_chunk = lossyear_data.isel(y=slice(i*chunk_size, (i+1)*chunk_size))
