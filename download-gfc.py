@@ -7,7 +7,10 @@ overwrite_files = dbutils.widgets.get("overwrite_files") == "True"
 import requests
 import os
 import json
-from time import sleep
+import tempfile
+import shutil
+
+from rio_cogeo import cog_translate, cog_profiles
 
 # COMMAND ----------
 
@@ -23,16 +26,33 @@ areas = config["GFC_TILE_AREAS"]
 
 # COMMAND ----------
 
+def save_as_cog(data: bytes, output_path: str, profile: str="deflate") -> None:
+    """
+    Translate bytes from a GeoTIFF to COG and save the result.
+    A tempfile is created because cog_translate seems to have problems 
+    reading from and writing to S3.
+    """
+    with tempfile.NamedTemporaryFile() as tmpfile:
+        tmpfile.write(data)
+        cog_translate(
+            tmpfile.name,
+            tmpfile.name,
+            cog_profiles[profile]
+        )
+
+        shutil.copyfile(tmpfile.name, output_path)
+
+# COMMAND ----------
+
 for product_name in products:
-    download_product_path = os.paths.join(download_base_path, product_name)
-    os.makedirs(download_product_path, exists_ok=True)
+    product_path = os.path.join(download_base_path, product_name)
+    os.makedirs(product_path, exist_ok=True)
     for area_name in areas:
-        download_path = os.path.join(download_product_path, f"{area_name}.tif")
-        if os.path.isfile(download_path) and not overwrite_files:
+        output_path = os.path.join(product_path, f"{area_name}.tif")
+        if os.path.isfile(output_path) and not overwrite_files:
             continue
+
+        print(f"{product_name}_{area_name}")
         url = base_url + f"Hansen_GFC-2022-v1.10_{product_name}_{area_name}.tif"
         r = requests.get(url)
-        with open(download_path, 'wb') as outfile:
-            outfile.write(r.content)
-        print(download_path)
-        sleep(0.5)
+        save_as_cog(r.content, output_path, profile="deflate")
