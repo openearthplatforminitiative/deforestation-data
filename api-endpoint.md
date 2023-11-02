@@ -9,22 +9,41 @@ GET deforestation/recent
 ```
 
 ### Parameters
-* `lat`
-* `lon`
+* `lat` - latitude in decimal degrees, required
+* `lon` - longitude in decimal degrees, required
 
 ### Response
 ```json
 {
-  "type": "Feature",
-  "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-        [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ]
-        ]
-  },
-  "properties": {
-    "forest-loss": 0.123
-  }
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "HYBAS_ID": 1081174660,
+                "NEXT_DOWN": 1081177300,
+                "NEXT_SINK": 1080041020,
+                "MAIN_BAS": 1080041020,
+                "sub_basin_area": 15.423,
+                "upstream_area": 1475.4,
+                "PFAF_ID": 11520560,
+                "tot_treecover_loss": 1203.1,
+                "rel_treecover_loss": 0.123,
+            },
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [100.0, 0.0],
+                        [101.0, 0.0],
+                        [101.0, 1.0],
+                        [100.0, 1.0],
+                        [100.0, 0.0]
+                    ]
+                ]
+            }
+        }
+    ]
 }
 ```
 
@@ -37,8 +56,8 @@ GET deforestation/lossyear
 ```
 
 ### Parameters
-* `lat`
-* `lon`
+* `lat` - latitude in decimal degrees, required
+* `lon` - longitude in decimal degrees, required
 
 ### Response
 ```json
