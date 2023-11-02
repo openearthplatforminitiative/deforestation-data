@@ -7,9 +7,11 @@
 
 import geopandas as gpd
 import pandas as pd
+import numpy as np
 import xarray as xr
 import rioxarray
 import rasterio
+import rio_cogeo
 from shapely.geometry import Polygon
 import json
 import os
@@ -28,6 +30,11 @@ gfc_path = config["GFC_DOWNLOAD_BASE_PATH"]
 gfc_treecover = config["GFC_TREECOVER_THRESHOLD"]
 chunk_size = config["GFC_CHUNK_SIZE"]
 output_path = config["GFC_BASINS_AGGREGATION_OUTPUT_PATH"]
+
+# COMMAND ----------
+
+total_loss_cols = [f"total_loss_20{y:02}" for y in range(1, 23)]
+relative_loss_cols = [f"relative_loss_20{y:02}" for y in range(1, 23)]
 
 # COMMAND ----------
 
@@ -52,13 +59,6 @@ basins.info()
 
 # COMMAND ----------
 
-# Initialize lossyear columns to zero
-lossyear_cols = [f"lossyear{y:02}" for y in range(1, 23)]
-for colname in lossyear_cols:
-    basins[colname] = 0
-
-# COMMAND ----------
-
 def get_gfc_path(product: str, area: str, spark_api: bool=True) -> str:
     prefix = "dbfs:/" if spark_api else "/dbfs/"
     gfc_root = "mnt/openepi-storage/global-forest-change/" 
@@ -75,6 +75,42 @@ def open_GFC_tile(src_path: str, roi: dict[str, float]) -> xr.DataArray:
     )
     return data
 
+def get_resolution(raster_src: str | xr.DataArray | xr.Dataset) -> float:
+    """Return the resoluton of a GeoTIFF given by path or an open xarray object."""
+    if isinstance(raster_src, str):
+        return abs(rio_cogeo.cog_info(raster_src).GEO.Resolution[0])
+    else:
+        return abs(raster_src.rio.resolution()[0])
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate the haversine distance between two geographical points in meters."""
+    R = 6371  # radius of Earth in km
+    phi_1 = np.radians(lat1)
+    phi_2 = np.radians(lat2)
+    delta_phi = np.radians(lat2 - lat1)
+    delta_lambda = np.radians(lon2 - lon1)
+    a = np.sin(delta_phi/2.0)**2 + np.cos(phi_1) * np.cos(phi_2) * np.sin(delta_lambda/2.0)**2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
+    meters = R * c  # output distance in km
+    return meters
+
+def calculate_pixel_area(df, pixel_size):
+    lat, lon = df.y, df.x
+    # Calculate coordinates of neighboring points
+    lat_north = lat + pixel_size / 2
+    lat_south = lat - pixel_size / 2
+    lon_east = lon + pixel_size / 2
+    lon_west = lon - pixel_size / 2
+    
+    # Calculate distances to neighboring points
+    height = haversine(lat_south, lon_west, lat_north, lon_west)
+    width = haversine(lat_south, lon_west, lat_south, lon_east)
+    
+    # Calculate area
+    area = height * width
+    return area
+
+
 def non_zero_to_df(data: xr.DataArray, name: str="non_zero") -> gpd.GeoDataFrame:
     """Take all non-zero cells in a DataArray and convert them to points in a GeoDataFrame."""
     df = data.to_dataframe(name=name).reset_index()
@@ -84,6 +120,8 @@ def non_zero_to_df(data: xr.DataArray, name: str="non_zero") -> gpd.GeoDataFrame
         geometry=gpd.points_from_xy(df.x, df.y), 
         crs=data.spatial_ref.crs_wkt
     )
+    pixel_size = get_resolution(data)
+    gdf["area"] = calculate_pixel_area(df, pixel_size)
     return gdf
 
 def count_loss_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.GeoDataFrame) -> pd.DataFrame:
@@ -110,6 +148,35 @@ def count_loss_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.Geo
     ).rename(columns={y: f"lossyear{y:02}" for y in range(1, 23)})
     return lossyear_count
 
+def lossarea_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.GeoDataFrame) -> pd.DataFrame:
+    """
+    Join lossyear point with basin polygons and pivot over basins and lossyear.
+    For each basin polygon and for each year from 2001 to 2022, calculate the 
+    sum of the area within the polygon with observed forest loss. 
+    """
+    basins_lossyear = gpd.sjoin(
+        basins, 
+        lossyear_points, 
+        how="inner", 
+        predicate='contains'
+    ).reset_index()
+
+    lossarea = pd.pivot_table(
+        basins_lossyear, 
+        values="area", 
+        index="HYBAS_ID", 
+        columns="lossyear", 
+        aggfunc="sum",
+        fill_value=0
+    ).rename(columns={y: f"total_loss_20{y:02}" for y in range(1, 23)})
+    return lossarea
+
+
+# COMMAND ----------
+
+# Initialize lossyear columns to zero
+for colname in total_loss_cols:
+    basins[colname] = 0
 
 # COMMAND ----------
 
@@ -126,14 +193,19 @@ for tile_area in gfc_tile_areas:
         chunk_slice = {"y": slice(i*chunk_size, (i+1)*chunk_size)}
         lossyear_chunk = lossyear_data.isel(y=slice(i*chunk_size, (i+1)*chunk_size))
         lossyear_points = non_zero_to_df(lossyear_chunk, "lossyear")
-        lossyear_count = count_loss_per_basin_year(lossyear_points, basins)
-        basins.loc[lossyear_count.index, lossyear_count.columns] += lossyear_count
+        lossarea = lossarea_per_basin_year(lossyear_points, basins)
+        basins.loc[lossarea.index, lossarea.columns] += lossarea
     lossyear_data.close()
 
 # COMMAND ----------
 
-basins["total_loss"] = basins[lossyear_cols].sum(axis=1)
-basins["relative_loss"] = basins["total_loss"] / basins["SUB_AREA"]
+for tloss, rloss in zip(total_loss_cols, relative_loss_cols):
+    basins[rloss] = basins[tloss] / (basins["SUB_AREA"])
+
+# COMMAND ----------
+
+basins["total_loss"] = basins[total_loss_cols].sum(axis=1)
+basins["relative_loss"] = basins[relative_loss_cols].sum(axis=1)
 
 # COMMAND ----------
 
