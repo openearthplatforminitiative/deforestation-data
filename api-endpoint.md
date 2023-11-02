@@ -20,15 +20,11 @@ GET deforestation/recent
         {
             "type": "Feature",
             "properties": {
-                "HYBAS_ID": 1081174660,
-                "NEXT_DOWN": 1081177300,
-                "NEXT_SINK": 1080041020,
-                "MAIN_BAS": 1080041020,
-                "sub_basin_area": 15.423,
+                "id": 1081174660,
+                "subbasin_area": 15.423,
                 "upstream_area": 1475.4,
-                "PFAF_ID": 11520560,
-                "tot_treecover_loss": 1203.1,
-                "rel_treecover_loss": 0.123,
+                "total_treecover_loss": 1203.1,
+                "relative_treecover_loss": 0.123,
             },
             "geometry": {
                 "type": "Polygon",
@@ -70,10 +66,10 @@ GET deforestation/lossyear
         ]
   },
   "properties": {
-    "forest-loss": [
+    "treecover_loss": [
         {
             "year": 2001,
-            "loss": 0.13
+            "total_loss": 0.13
         },
         {
             "year": 2002,
