@@ -1,16 +1,17 @@
 # Deforestation API Endpoints
 
-## Recent loss
+## Trecover loss
 Returns forest cover loss aggregated over the last three years for the river basin containing the given coordinate.
 
 ### Endpoint
 ```
-GET deforestation/recent
+GET deforestation/lossyear
 ```
 
 ### Parameters
 * `lat` - latitude in decimal degrees, required
 * `lon` - longitude in decimal degrees, required
+* `daterange` - TODO: determine date range specification
 
 ### Response
 ```json
@@ -23,8 +24,28 @@ GET deforestation/recent
                 "id": 1081174660,
                 "subbasin_area": 15.423,
                 "upstream_area": 1475.4,
+                "downstream_id": 1081174490,
                 "total_treecover_loss": 1203.1,
                 "relative_treecover_loss": 0.123,
+                "start_year": 2020,
+                "end_year": 2022,
+                "lossyear": [
+                    {
+                        "year": 2001,
+                        "total": 0.13,
+                        "relative": 0.13
+                    },
+                    {
+                        "year": 2002,
+                        "total": 142.1,
+                        "relative": 0.13
+                    },
+                    {
+                        "year": 2003,
+                        "total": 0.0,
+                        "relative": 0.0
+                    }
+                ]
             },
             "geometry": {
                 "type": "Polygon",
@@ -40,49 +61,5 @@ GET deforestation/recent
             }
         }
     ]
-}
-```
-
-## Loss year
-Returns forest cover loss aggregated per year (from 2001 to 2022) for the river basin containing the given coordinate.
-
-### Endpoint
-```
-GET deforestation/lossyear
-```
-
-### Parameters
-* `lat` - latitude in decimal degrees, required
-* `lon` - longitude in decimal degrees, required
-
-### Response
-```json
-{
-  "type": "Feature",
-  "geometry": {
-    "type": "Polygon",
-    "coordinates": [
-        [ [100.0, 0.0], [101.0, 0.0], [101.0, 1.0], [100.0, 1.0], [100.0, 0.0] ]
-        ]
-  },
-  "properties": {
-    "treecover_loss": [
-        {
-            "year": 2001,
-            "total": 0.13,
-            "relative": 0.13
-        },
-        {
-            "year": 2002,
-            "total": 142.1,
-            "relative": 0.13
-        },
-        {
-            "year": 2003,
-            "total": 0.0,
-            "relative": 0.0
-        }
-    ]
-  }
 }
 ```
