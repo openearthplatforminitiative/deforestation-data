@@ -1,7 +1,7 @@
 # Deforestation API Endpoints
 
-## Trecover loss
-Returns forest cover loss aggregated over the last three years for the river basin containing the given coordinate.
+## Tree cover loss
+Returns tree cover loss aggregated over the last three years for the river basin containing the given coordinate.
 
 ### Endpoint
 ```
