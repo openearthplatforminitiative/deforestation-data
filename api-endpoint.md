@@ -69,17 +69,19 @@ GET deforestation/lossyear
     "treecover_loss": [
         {
             "year": 2001,
-            "total_loss": 0.13
+            "total": 0.13,
+            "relative": 0.13
         },
         {
             "year": 2002,
-            "loss": 0.08
+            "total": 142.1,
+            "relative": 0.13
         },
         {
             "year": 2003,
-            "loss": 0.201
-        },
-        ...
+            "total": 0.0,
+            "relative": 0.0
+        }
     ]
   }
 }
