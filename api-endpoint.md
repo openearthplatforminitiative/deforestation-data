@@ -4,7 +4,7 @@
 Returns forest cover loss aggregated over the last three years for the river basin containing the given coordinate.
 
 ### Endpoint
-```http
+```
 GET deforestation/recent
 ```
 
@@ -51,7 +51,7 @@ GET deforestation/recent
 Returns forest cover loss aggregated per year (from 2001 to 2022) for the river basin containing the given coordinate.
 
 ### Endpoint
-```http
+```
 GET deforestation/lossyear
 ```
 
