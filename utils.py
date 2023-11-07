@@ -82,6 +82,5 @@ def count_loss_per_basin_year(lossyear_points: gpd.GeoDataFrame, basins: gpd.Geo
         how="inner", 
         predicate='contains'
     )
-    print(basins_lossyear.columns)
     lossyear_count = basins_lossyear.groupby(["HYBAS_ID", "lossyear"]).agg({"lossarea": "sum"})
     return lossyear_count
